@@ -362,7 +362,7 @@ matches.forEach(m=>{
 // link simply gets a read-only view: no click handlers are attached at
 // all, so there's nothing to tamper with client-side.
 const urlParams = new URLSearchParams(location.search);
-const adminKey = urlParams.get('admin');
+const adminKey = (urlParams.get('admin') || '').trim();
 const isAdmin = !!adminKey;
 
 const modeBadge = document.getElementById('modeBadge');
@@ -448,14 +448,31 @@ async function pushState(){
       body: JSON.stringify({ adminKey, state:{ winners, seedTeams } })
     });
     if(!r.ok){
+      let reason = 'HTTP ' + r.status;
+      try{
+        const data = await r.json();
+        if(data && data.error) reason = data.error;
+      }catch(e){ /* response wasn't JSON, keep the status code */ }
       if(!syncFailed){
         syncFailed = true;
-        modeBadge.textContent = '⚠️ Kunci admin salah — perubahan tidak tersimpan';
+        modeBadge.textContent = '⚠️ Gagal simpan: ' + reason;
+        modeBadge.title = reason;
         modeBadge.classList.remove('admin');
         modeBadge.classList.add('viewer');
       }
+      console.error('Gagal menyimpan ke server:', reason);
+    } else if(syncFailed){
+      // a later save succeeded — restore the normal admin badge
+      syncFailed = false;
+      modeBadge.textContent = '🔒 Mode Admin';
+      modeBadge.title = '';
+      modeBadge.classList.remove('viewer');
+      modeBadge.classList.add('admin');
     }
-  }catch(e){ /* network issue — change still shows locally, will retry next click */ }
+  }catch(e){
+    console.error('Gagal menghubungi server:', e);
+    /* network issue — change still shows locally, will retry next click */
+  }
 }
 
 // ---------- Render ----------
