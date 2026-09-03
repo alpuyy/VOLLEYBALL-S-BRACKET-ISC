@@ -8,25 +8,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0a0d12;
-    --bg-panel:#141a22;
-    --panel:#161d27;
-    --panel-border:#26303e;
-    --text:#eef2f7;
-    --muted:#6c7889;
-    --muted-soft:#4a5566;
-    --court:#2dd4bf;
-    --court-dim:#123c38;
-    --accent:#ff6a3d;
-    --accent-dim:#4a2415;
-    --line-color:#374559;
+    --bg:#fbf6ef;
+    --bg-panel:#ffffff;
+    --panel:#ffffff;
+    --panel-border:#ecdfd0;
+    --text:#4a4038;
+    --muted:#a89a8c;
+    --muted-soft:#c9bcae;
+    --court:#5fc9b7;
+    --court-dim:#e3f6f2;
+    --accent:#f2794f;
+    --accent-dim:#fde7dc;
+    --line-color:#ddd0c0;
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
     background:
-      repeating-linear-gradient(135deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 64px),
-      radial-gradient(ellipse at 20% -10%, #14202b 0%, var(--bg) 55%);
+      repeating-linear-gradient(135deg, rgba(180,150,120,0.05) 0px, rgba(180,150,120,0.05) 1px, transparent 1px, transparent 64px),
+      radial-gradient(ellipse at 20% -10%, #fff9f2 0%, var(--bg) 55%);
     color:var(--text);
     font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     min-height:100vh;
@@ -56,7 +56,15 @@
     color:var(--muted);
     font-size:13px;
   }
-  .toolbar{display:flex; gap:10px;}
+  .toolbar{display:flex; align-items:center; gap:10px;}
+  .mode-badge{
+    font-size:11.5px;
+    padding:5px 11px;
+    border-radius:20px;
+    font-weight:600;
+  }
+  .mode-badge.admin{ background:var(--accent-dim); color:var(--accent); }
+  .mode-badge.viewer{ background:var(--court-dim); color:#2e9484; }
   button.reset{
     background:transparent;
     border:1px solid var(--panel-border);
@@ -71,7 +79,7 @@
   button.reset:hover{border-color:var(--accent); color:var(--accent);}
   button.reset.confirm{
     border-color:var(--accent);
-    color:#1a0d06;
+    color:#ffffff;
     background:var(--accent);
     font-weight:600;
   }
@@ -169,6 +177,7 @@
     border:1px solid var(--panel-border);
     border-left:3px solid var(--panel-border);
     border-radius:5px;
+    box-shadow:0 1px 3px rgba(150,120,90,0.08);
     overflow:visible;
     transition:border-left-color .2s;
   }
@@ -176,9 +185,9 @@
   .match-num{
     position:absolute;
     right:8px; top:-9px;
-    background:var(--bg);
+    background:#ffffff;
     border:1px solid var(--panel-border);
-    color:var(--muted-soft);
+    color:var(--muted);
     font-size:9.5px;
     padding:1px 5px;
     border-radius:8px;
@@ -196,15 +205,16 @@
   }
   .slot:last-child{border-bottom:none;}
   .slot .seed{
-    color:var(--muted-soft);
+    color:var(--muted);
     font-size:10.5px;
     flex-shrink:0;
     width:16px;
   }
   .slot.pending{color:var(--muted); font-style:italic;}
   .slot.pending .seed{visibility:hidden;}
-  .slot.ready{cursor:pointer;}
-  .slot.ready:hover{background:#1c2534;}
+  .slot.ready{ }
+  .slot.clickable{cursor:pointer;}
+  .slot.clickable:hover{background:#faf3ea;}
   .slot.ready:not(.winner):not(.loser)::before{
     content:'';
     width:6px; height:6px; border-radius:50%;
@@ -228,7 +238,7 @@
   .slot .name-input{
     flex:1;
     min-width:0;
-    background:#0c1017;
+    background:#fffaf3;
     border:1px solid var(--accent);
     border-radius:3px;
     color:var(--text);
@@ -246,13 +256,13 @@
     visibility:hidden;
   }
   .slot:hover .edit-icon{visibility:visible;}
-  .slot .edit-icon:hover{color:var(--accent); background:#232d3d;}
+  .slot .edit-icon:hover{color:var(--accent); background:#f3e6d8;}
   .slot .tick{color:var(--accent); font-size:12px; flex-shrink:0; visibility:hidden;}
   .slot.winner .tick{visibility:visible;}
 
   footer{
     text-align:center;
-    color:var(--muted-soft);
+    color:var(--muted);
     font-size:12px;
     padding:8px 20px 26px;
   }
@@ -266,9 +276,10 @@
       <span class="ball">🏐</span>
       <h1 class="display">BAGAN TURNAMEN <em>BOLA VOLI</em> — CABOR ISC 2026</h1>
     </div>
-    <p>Klik kotak tim untuk menetapkan sebagai pemenang. Tim itu otomatis maju ke babak berikutnya.</p>
+    <p id="modeHint">Klik kotak tim untuk menetapkan sebagai pemenang. Tim itu otomatis maju ke babak berikutnya.</p>
   </div>
   <div class="toolbar">
+    <span class="mode-badge" id="modeBadge"></span>
     <button class="reset" id="resetBtn">Reset seluruh hasil</button>
   </div>
 </header>
@@ -343,6 +354,30 @@ matches.forEach(m=>{
   });
 });
 
+// ---------- Admin mode ----------
+// A visitor is "admin" only if the page URL carries ?admin=<key>. The key
+// itself is never checked in the browser — it's forwarded as-is to the
+// server, which is the only place that knows the real secret (ADMIN_KEY
+// env var) and decides whether a write is allowed. Anyone without the
+// link simply gets a read-only view: no click handlers are attached at
+// all, so there's nothing to tamper with client-side.
+const urlParams = new URLSearchParams(location.search);
+const adminKey = urlParams.get('admin');
+const isAdmin = !!adminKey;
+
+const modeBadge = document.getElementById('modeBadge');
+const modeHint = document.getElementById('modeHint');
+const resetBtnEl = document.getElementById('resetBtn');
+if(isAdmin){
+  modeBadge.textContent = '🔒 Mode Admin';
+  modeBadge.classList.add('admin');
+} else {
+  modeBadge.textContent = '👀 Mode Tonton';
+  modeBadge.classList.add('viewer');
+  modeHint.textContent = 'Anda melihat hasil pertandingan secara langsung. Bagan ini otomatis diperbarui saat panitia memasukkan hasil.';
+  resetBtnEl.style.display = 'none';
+}
+
 // ---------- Vertical layout ----------
 // Round-1 matches sit on a fixed, evenly-spaced grid. Every later match is
 // centred on the source match(es) that feed it — a bye lines up exactly
@@ -384,6 +419,43 @@ function clearDownstream(matchId){
     delete winners[feed.parent];
     clearDownstream(feed.parent);
   }
+}
+
+// ---------- Shared state (server) ----------
+// GET is public so every visitor sees the same bracket. POST is only ever
+// attempted in admin mode, and the server re-checks the key regardless.
+async function loadState(){
+  try{
+    const r = await fetch('/api/state', {cache:'no-store'});
+    if(r.ok){
+      const data = await r.json();
+      if(data.state){
+        if(data.state.winners) winners = data.state.winners;
+        if(data.state.seedTeams) Object.assign(seedTeams, data.state.seedTeams);
+      }
+    }
+  }catch(e){ /* offline or API not deployed yet — fall back to local state */ }
+  render();
+}
+
+let syncFailed = false;
+async function pushState(){
+  if(!isAdmin) return;
+  try{
+    const r = await fetch('/api/state', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ adminKey, state:{ winners, seedTeams } })
+    });
+    if(!r.ok){
+      if(!syncFailed){
+        syncFailed = true;
+        modeBadge.textContent = '⚠️ Kunci admin salah — perubahan tidak tersimpan';
+        modeBadge.classList.remove('admin');
+        modeBadge.classList.add('viewer');
+      }
+    }
+  }catch(e){ /* network issue — change still shows locally, will retry next click */ }
 }
 
 // ---------- Render ----------
@@ -480,7 +552,8 @@ function renderSlot(m, side){
   // Renaming (only raw seed entries: round-1 teams and bye teams) opens
   // an inline text input in place of the pencil icon — this avoids
   // window.prompt(), which some embedded browser views block silently.
-  if(ref.type==='seed'){
+  // Only shown in admin mode.
+  if(ref.type==='seed' && isAdmin){
     const editIcon = document.createElement('span');
     editIcon.className = 'edit-icon';
     editIcon.textContent = '✎';
@@ -498,16 +571,22 @@ function renderSlot(m, side){
   slot.appendChild(tick);
 
   // Selecting a winner: the whole slot (including the name) is one big
-  // click target, enabled only once the opposing team is also known.
+  // click target, enabled only once the opposing team is also known —
+  // and only in admin mode. Viewers still see the "ready" dot so they
+  // know a match can be played, they just can't act on it.
   if(otherName!==null){
     slot.classList.add('ready');
-    slot.addEventListener('click', ()=>{
-      if(winners[m.id] !== side){
-        winners[m.id] = side;
-        clearDownstream(m.id);
-        render();
-      }
-    });
+    if(isAdmin){
+      slot.classList.add('clickable');
+      slot.addEventListener('click', ()=>{
+        if(winners[m.id] !== side){
+          winners[m.id] = side;
+          clearDownstream(m.id);
+          render();
+          pushState();
+        }
+      });
+    }
   }
 
   if(winners[m.id]===side) slot.classList.add('winner');
@@ -584,6 +663,7 @@ function startEditing(nameEl, ref){
     const val = input.value.trim();
     seedTeams[ref.seed] = val || seedTeams[ref.seed];
     render();
+    pushState();
   };
   input.addEventListener('keydown', e=>{
     if(e.key==='Enter') input.blur();
@@ -617,12 +697,19 @@ resetBtn.addEventListener('click', ()=>{
     resetBtn.classList.remove('confirm');
     winners = {};
     render();
+    pushState();
   }
 });
 
 window.addEventListener('resize', ()=> requestAnimationFrame(drawLines));
 
-render();
+loadState();
+// Viewers poll for updates so the bracket stays live without a refresh.
+// Admin doesn't poll, so an in-progress rename never gets overwritten
+// mid-edit by a stale fetch.
+if(!isAdmin){
+  setInterval(loadState, 6000);
+}
 </script>
 </body>
 </html>
