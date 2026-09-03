@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bagan Interaktif — Cabor Voli ISC 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fbf6ef;
+    --bg-panel:#ffffff;
+    --panel:#ffffff;
+    --panel-border:#ecdfd0;
+    --text:#4a4038;
+    --muted:#a89a8c;
+    --muted-soft:#c9bcae;
+    --court:#5fc9b7;
+    --court-dim:#e3f6f2;
+    --accent:#f2794f;
+    --accent-dim:#fde7dc;
+    --line-color:#ddd0c0;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      repeating-linear-gradient(135deg, rgba(180,150,120,0.05) 0px, rgba(180,150,120,0.05) 1px, transparent 1px, transparent 64px),
+      radial-gradient(ellipse at 20% -10%, #fff9f2 0%, var(--bg) 55%);
+    color:var(--text);
+    font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height:100vh;
+  }
+  .display{ font-family:'Bebas Neue', 'Inter', sans-serif; letter-spacing:0.5px; }
+
+  header{
+    padding:26px 32px 20px;
+    border-bottom:1px solid var(--panel-border);
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  header .title-row{display:flex; align-items:center; gap:12px;}
+  header .ball{font-size:26px; line-height:1;}
+  header h1{
+    font-size:30px;
+    font-weight:400;
+    margin:0;
+    line-height:1;
+  }
+  header h1 em{color:var(--accent); font-style:normal;}
+  header p{
+    margin:6px 0 0;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .toolbar{display:flex; align-items:center; gap:10px;}
+  .mode-badge{
+    font-size:11.5px;
+    padding:5px 11px;
+    border-radius:20px;
+    font-weight:600;
+  }
+  .mode-badge.admin{ background:var(--accent-dim); color:var(--accent); }
+  .mode-badge.viewer{ background:var(--court-dim); color:#2e9484; }
+  button.reset{
+    background:transparent;
+    border:1px solid var(--panel-border);
+    color:var(--muted);
+    padding:9px 16px;
+    border-radius:5px;
+    font-size:13px;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    transition:border-color .15s, color .15s, background .15s;
+  }
+  button.reset:hover{border-color:var(--accent); color:var(--accent);}
+  button.reset.confirm{
+    border-color:var(--accent);
+    color:#ffffff;
+    background:var(--accent);
+    font-weight:600;
+  }
+
+  .legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:20px;
+    padding:16px 32px 0;
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .legend span{display:flex; align-items:center; gap:7px;}
+  .legend .dot{width:8px; height:8px; border-radius:50%; display:inline-block;}
+  .legend .dot.pending{background:var(--muted-soft);}
+  .legend .dot.ready{background:var(--court);}
+  .legend .dot.winner{background:var(--accent);}
+
+  #champion-banner{
+    margin:18px 32px 0;
+    padding:16px 22px;
+    border-radius:8px;
+    background:linear-gradient(90deg, var(--accent-dim), transparent 70%);
+    border-left:3px solid var(--accent);
+    font-size:13px;
+    color:var(--muted);
+    display:none;
+  }
+  #champion-banner.show{display:flex; align-items:center; gap:10px;}
+  #champion-banner .cup{font-size:20px;}
+  #champion-banner b{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:22px;
+    letter-spacing:0.5px;
+    color:var(--accent);
+    font-weight:400;
+  }
+
+  #bracket-scroll{
+    overflow-x:auto;
+    padding:36px 32px 48px;
+  }
+  #bracket{
+    position:relative;
+    display:flex;
+    gap:56px;
+  }
+  svg.lines{
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    pointer-events:none;
+    overflow:visible;
+  }
+  svg.lines path{
+    fill:none;
+    stroke:var(--line-color);
+    stroke-width:1.75;
+  }
+  svg.lines path.done{
+    stroke:var(--accent);
+    stroke-width:2.25;
+  }
+  svg.lines circle{ fill:var(--line-color); }
+  svg.lines circle.done{ fill:var(--accent); }
+
+  .round{
+    width:200px;
+    flex-shrink:0;
+    z-index:1;
+  }
+  .round-label{
+    color:var(--muted);
+    font-size:13px;
+    letter-spacing:1.5px;
+    margin-bottom:24px;
+    padding-bottom:10px;
+    border-bottom:2px solid var(--panel-border);
+  }
+  .round-label b{
+    color:var(--text);
+    font-family:'Bebas Neue', sans-serif;
+    font-size:16px;
+    font-weight:400;
+  }
+  .round-body{
+    position:relative;
+  }
+
+  .match{
+    position:absolute;
+    left:0;
+    width:100%;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-left:3px solid var(--panel-border);
+    border-radius:5px;
+    box-shadow:0 1px 3px rgba(150,120,90,0.08);
+    overflow:visible;
+    transition:border-left-color .2s;
+  }
+  .match.decided{ border-left-color:var(--accent); }
+  .match-num{
+    position:absolute;
+    right:8px; top:-9px;
+    background:#ffffff;
+    border:1px solid var(--panel-border);
+    color:var(--muted);
+    font-size:9.5px;
+    padding:1px 5px;
+    border-radius:8px;
+    font-family:'Inter',sans-serif;
+  }
+  .slot{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:9px 10px;
+    font-size:13.5px;
+    border-bottom:1px solid var(--panel-border);
+    color:var(--text);
+    transition:background .15s;
+  }
+  .slot:last-child{border-bottom:none;}
+  .slot .seed{
+    color:var(--muted);
+    font-size:10.5px;
+    flex-shrink:0;
+    width:16px;
+  }
+  .slot.pending{color:var(--muted); font-style:italic;}
+  .slot.pending .seed{visibility:hidden;}
+  .slot.ready{ }
+  .slot.clickable{cursor:pointer;}
+  .slot.clickable:hover{background:#faf3ea;}
+  .slot.ready:not(.winner):not(.loser)::before{
+    content:'';
+    width:6px; height:6px; border-radius:50%;
+    background:var(--court);
+    flex-shrink:0;
+    margin-right:1px;
+  }
+  .slot.winner{
+    color:var(--accent);
+    font-weight:600;
+    background:linear-gradient(90deg, var(--accent-dim), transparent 85%);
+  }
+  .slot.loser{color:var(--muted); text-decoration:line-through; opacity:.5;}
+  .slot .name{
+    flex:1;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .slot .name-input{
+    flex:1;
+    min-width:0;
+    background:#fffaf3;
+    border:1px solid var(--accent);
+    border-radius:3px;
+    color:var(--text);
+    font:inherit;
+    font-size:13px;
+    padding:2px 6px;
+    outline:none;
+  }
+  .slot .edit-icon{
+    color:var(--muted-soft);
+    font-size:12px;
+    flex-shrink:0;
+    padding:2px 4px;
+    border-radius:3px;
+    visibility:hidden;
+  }
+  .slot:hover .edit-icon{visibility:visible;}
+  .slot .edit-icon:hover{color:var(--accent); background:#f3e6d8;}
+  .slot .tick{color:var(--accent); font-size:12px; flex-shrink:0; visibility:hidden;}
+  .slot.winner .tick{visibility:visible;}
+
+  footer{
+    text-align:center;
+    color:var(--muted);
+    font-size:12px;
+    padding:8px 20px 26px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="title-row">
+      <span class="ball">🏐</span>
+      <h1 class="display">BAGAN TURNAMEN <em>BOLA VOLI</em> — CABOR ISC 2026</h1>
+    </div>
+    <p id="modeHint">Klik kotak tim untuk menetapkan sebagai pemenang. Tim itu otomatis maju ke babak berikutnya.</p>
+  </div>
+  <div class="toolbar">
+    <span class="mode-badge" id="modeBadge"></span>
+    <button class="reset" id="resetBtn">Reset seluruh hasil</button>
+  </div>
+</header>
+
+<div class="legend">
+  <span><i class="dot pending"></i> Menunggu lawan ditentukan</span>
+  <span><i class="dot ready"></i> Siap diklik — sudah ada dua tim</span>
+  <span><i class="dot winner"></i> Pemenang, otomatis maju</span>
+  <span>✎ &nbsp;Ubah nama tim (Babak 1 &amp; tim bye)</span>
+</div>
+
+<div id="champion-banner"></div>
+
+<div id="bracket-scroll">
+  <div id="bracket"></div>
+</div>
+
+<footer>28 tim &middot; 5 babak &middot; eliminasi tunggal</footer>
+
+<script>
+// ---------- Data ----------
+const seedTeams = {
+  1:"TIM A", 2:"TIM B", 3:"TIM C", 4:"TIM D", 5:"TIM E", 6:"TIM F", 7:"TIM G", 8:"TIM H",
+  9:"TIM I", 10:"TIM J", 11:"TIM K", 12:"TIM L", 13:"TIM M", 14:"TIM N", 15:"TIM O", 16:"TIM P",
+  17:"TIM Q", 18:"TIM R", 19:"TIM S", 20:"TIM T", 21:"TIM U", 22:"TIM V", 23:"TIM W", 24:"TIM X",
+  25:"TIM Y", 26:"TIM Z", 27:"TIM AB", 28:"TIM AC"
+};
+
+const matches = [
+  {id:1,  a:{type:'seed',seed:2},  b:{type:'seed',seed:17}},
+  {id:2,  a:{type:'seed',seed:4},  b:{type:'seed',seed:18}},
+  {id:3,  a:{type:'seed',seed:6},  b:{type:'seed',seed:19}},
+  {id:4,  a:{type:'seed',seed:8},  b:{type:'seed',seed:20}},
+  {id:5,  a:{type:'seed',seed:9},  b:{type:'seed',seed:21}},
+  {id:6,  a:{type:'seed',seed:10}, b:{type:'seed',seed:22}},
+  {id:7,  a:{type:'seed',seed:11}, b:{type:'seed',seed:23}},
+  {id:8,  a:{type:'seed',seed:12}, b:{type:'seed',seed:24}},
+  {id:9,  a:{type:'seed',seed:13}, b:{type:'seed',seed:25}},
+  {id:10, a:{type:'seed',seed:14}, b:{type:'seed',seed:26}},
+  {id:11, a:{type:'seed',seed:15}, b:{type:'seed',seed:27}},
+  {id:12, a:{type:'seed',seed:16}, b:{type:'seed',seed:28}},
+  {id:13, a:{type:'seed',seed:1},  b:{type:'winner',m:1}},
+  {id:14, a:{type:'seed',seed:3},  b:{type:'winner',m:2}},
+  {id:15, a:{type:'seed',seed:5},  b:{type:'winner',m:3}},
+  {id:16, a:{type:'seed',seed:7},  b:{type:'winner',m:4}},
+  {id:17, a:{type:'winner',m:5},   b:{type:'winner',m:6}},
+  {id:18, a:{type:'winner',m:7},   b:{type:'winner',m:8}},
+  {id:19, a:{type:'winner',m:9},   b:{type:'winner',m:10}},
+  {id:20, a:{type:'winner',m:11},  b:{type:'winner',m:12}},
+  {id:21, a:{type:'winner',m:13},  b:{type:'winner',m:14}},
+  {id:22, a:{type:'winner',m:15},  b:{type:'winner',m:16}},
+  {id:23, a:{type:'winner',m:17},  b:{type:'winner',m:18}},
+  {id:24, a:{type:'winner',m:19},  b:{type:'winner',m:20}},
+  {id:25, a:{type:'winner',m:21},  b:{type:'winner',m:22}},
+  {id:26, a:{type:'winner',m:23},  b:{type:'winner',m:24}},
+  {id:27, a:{type:'winner',m:25},  b:{type:'winner',m:26}},
+];
+const matchById = Object.fromEntries(matches.map(m=>[m.id,m]));
+const rounds = [
+  {label:'BABAK 1', ids:[1,2,3,4,5,6,7,8,9,10,11,12]},
+  {label:'BABAK 2', ids:[13,14,15,16,17,18,19,20]},
+  {label:'PEREMPAT FINAL', ids:[21,22,23,24]},
+  {label:'SEMIFINAL', ids:[25,26]},
+  {label:'FINAL', ids:[27]},
+];
+// reverse map: which match+slot does a given match feed into?
+const feedsInto = {};
+matches.forEach(m=>{
+  ['a','b'].forEach(side=>{
+    const ref = m[side];
+    if(ref.type==='winner') feedsInto[ref.m] = {parent:m.id, slot:side};
+  });
+});
+
+// ---------- Admin mode ----------
+// A visitor is "admin" only if the page URL carries ?admin=<key>. The key
+// itself is never checked in the browser — it's forwarded as-is to the
+// server, which is the only place that knows the real secret (ADMIN_KEY
+// env var) and decides whether a write is allowed. Anyone without the
+// link simply gets a read-only view: no click handlers are attached at
+// all, so there's nothing to tamper with client-side.
+const urlParams = new URLSearchParams(location.search);
+const adminKey = urlParams.get('admin');
+const isAdmin = !!adminKey;
+
+const modeBadge = document.getElementById('modeBadge');
+const modeHint = document.getElementById('modeHint');
+const resetBtnEl = document.getElementById('resetBtn');
+if(isAdmin){
+  modeBadge.textContent = '🔒 Mode Admin';
+  modeBadge.classList.add('admin');
+} else {
+  modeBadge.textContent = '👀 Mode Tonton';
+  modeBadge.classList.add('viewer');
+  modeHint.textContent = 'Anda melihat hasil pertandingan secara langsung. Bagan ini otomatis diperbarui saat panitia memasukkan hasil.';
+  resetBtnEl.style.display = 'none';
+}
+
+// ---------- Vertical layout ----------
+// Round-1 matches sit on a fixed, evenly-spaced grid. Every later match is
+// centred on the source match(es) that feed it — a bye lines up exactly
+// with its single source match, a real pairing sits at the midpoint of its
+// two sources. This mirrors how the printed bracket is drawn and keeps the
+// connecting lines straight and legible instead of drifting apart.
+const ROW_H = 78;     // vertical space per round-1 match
+const MATCH_H = 62;   // rendered height of a two-slot match card
+
+const centerY = {};
+rounds[0].ids.forEach((id, i)=>{ centerY[id] = i*ROW_H + ROW_H/2; });
+
+function centerOf(ref){
+  return ref.type==='seed' ? null : centerY[ref.m];
+}
+for(let r=1; r<rounds.length; r++){
+  rounds[r].ids.forEach(id=>{
+    const m = matchById[id];
+    const ca = centerOf(m.a), cb = centerOf(m.b);
+    centerY[id] = (ca!==null && cb!==null) ? (ca+cb)/2 : (ca!==null ? ca : cb);
+  });
+}
+const bracketHeight = rounds[0].ids.length * ROW_H;
+
+// ---------- State ----------
+let winners = {};   // matchId -> 'a' | 'b'
+
+function getName(ref){
+  if(ref.type==='seed') return seedTeams[ref.seed];
+  const w = winners[ref.m];
+  if(!w) return null;
+  return getName(matchById[ref.m][w]);
+}
+
+function clearDownstream(matchId){
+  const feed = feedsInto[matchId];
+  if(!feed) return;
+  if(winners[feed.parent]!==undefined){
+    delete winners[feed.parent];
+    clearDownstream(feed.parent);
+  }
+}
+
+// ---------- Shared state (server) ----------
+// GET is public so every visitor sees the same bracket. POST is only ever
+// attempted in admin mode, and the server re-checks the key regardless.
+async function loadState(){
+  try{
+    const r = await fetch('/api/state', {cache:'no-store'});
+    if(r.ok){
+      const data = await r.json();
+      if(data.state){
+        if(data.state.winners) winners = data.state.winners;
+        if(data.state.seedTeams) Object.assign(seedTeams, data.state.seedTeams);
+      }
+    }
+  }catch(e){ /* offline or API not deployed yet — fall back to local state */ }
+  render();
+}
+
+let syncFailed = false;
+async function pushState(){
+  if(!isAdmin) return;
+  try{
+    const r = await fetch('/api/state', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ adminKey, state:{ winners, seedTeams } })
+    });
+    if(!r.ok){
+      if(!syncFailed){
+        syncFailed = true;
+        modeBadge.textContent = '⚠️ Kunci admin salah — perubahan tidak tersimpan';
+        modeBadge.classList.remove('admin');
+        modeBadge.classList.add('viewer');
+      }
+    }
+  }catch(e){ /* network issue — change still shows locally, will retry next click */ }
+}
+
+// ---------- Render ----------
+const bracketEl = document.getElementById('bracket');
+const bannerEl = document.getElementById('champion-banner');
+
+function render(){
+  bracketEl.innerHTML = '';
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','lines');
+
+  rounds.forEach(round=>{
+    const col = document.createElement('div');
+    col.className = 'round';
+
+    const label = document.createElement('div');
+    label.className = 'round-label';
+    label.innerHTML = '<b>'+round.label+'</b>';
+    col.appendChild(label);
+
+    const body = document.createElement('div');
+    body.className = 'round-body';
+    body.style.height = bracketHeight + 'px';
+    round.ids.forEach(id=> body.appendChild(renderMatch(matchById[id])));
+    col.appendChild(body);
+
+    bracketEl.appendChild(col);
+  });
+
+  bracketEl.appendChild(svg);
+
+  // champion banner: match 27 is the final, its winner is the champion
+  const champ = winners[27] ? getName(matchById[27][winners[27]]) : null;
+  if(champ){
+    bannerEl.innerHTML = '<span class="cup">🏆</span> JUARA CABOR VOLI ISC 2026 &nbsp;<b>'+escapeHtml(champ)+'</b>';
+    bannerEl.classList.add('show');
+  } else {
+    bannerEl.classList.remove('show');
+  }
+
+  requestAnimationFrame(drawLines);
+}
+
+function renderMatch(m){
+  const box = document.createElement('div');
+  box.className = 'match';
+  box.dataset.match = m.id;
+  box.style.top = (centerY[m.id] - MATCH_H/2) + 'px';
+  if(winners[m.id]!==undefined) box.classList.add('decided');
+
+  const num = document.createElement('div');
+  num.className = 'match-num';
+  num.textContent = '#'+m.id;
+  box.appendChild(num);
+
+  box.appendChild(renderSlot(m, 'a'));
+  box.appendChild(renderSlot(m, 'b'));
+  return box;
+}
+
+// A slot is only selectable once BOTH teams in the match are known.
+function renderSlot(m, side){
+  const ref = m[side];
+  const name = getName(ref);
+  const otherSide = side==='a'?'b':'a';
+  const otherName = getName(m[otherSide]);
+
+  const slot = document.createElement('div');
+  slot.className = 'slot';
+  slot.dataset.match = m.id;
+  slot.dataset.slot = side;
+
+  if(ref.type==='seed'){
+    const seedEl = document.createElement('span');
+    seedEl.className = 'seed';
+    seedEl.textContent = ref.seed;
+    slot.appendChild(seedEl);
+  }
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'name';
+
+  if(name===null){
+    slot.classList.add('pending');
+    nameEl.textContent = 'Menunggu';
+    slot.appendChild(nameEl);
+    return slot;
+  }
+
+  nameEl.textContent = name;
+  slot.appendChild(nameEl);
+
+  // Renaming (only raw seed entries: round-1 teams and bye teams) opens
+  // an inline text input in place of the pencil icon — this avoids
+  // window.prompt(), which some embedded browser views block silently.
+  // Only shown in admin mode.
+  if(ref.type==='seed' && isAdmin){
+    const editIcon = document.createElement('span');
+    editIcon.className = 'edit-icon';
+    editIcon.textContent = '✎';
+    editIcon.title = 'Ubah nama tim';
+    editIcon.addEventListener('click', e=>{
+      e.stopPropagation();
+      startEditing(nameEl, ref);
+    });
+    slot.appendChild(editIcon);
+  }
+
+  const tick = document.createElement('span');
+  tick.className = 'tick';
+  tick.textContent = '✓';
+  slot.appendChild(tick);
+
+  // Selecting a winner: the whole slot (including the name) is one big
+  // click target, enabled only once the opposing team is also known —
+  // and only in admin mode. Viewers still see the "ready" dot so they
+  // know a match can be played, they just can't act on it.
+  if(otherName!==null){
+    slot.classList.add('ready');
+    if(isAdmin){
+      slot.classList.add('clickable');
+      slot.addEventListener('click', ()=>{
+        if(winners[m.id] !== side){
+          winners[m.id] = side;
+          clearDownstream(m.id);
+          render();
+          pushState();
+        }
+      });
+    }
+  }
+
+  if(winners[m.id]===side) slot.classList.add('winner');
+  else if(winners[m.id]===otherSide) slot.classList.add('loser');
+
+  return slot;
+}
+
+// Rounded-corner elbow connector: out of the source, bend, into the target.
+function elbowPath(x1, y1, x2, y2, r){
+  if(Math.abs(y2-y1) < 0.5) return `M ${x1} ${y1} H ${x2}`;
+  const midX = x1 + (x2-x1)/2;
+  const dir = y2 > y1 ? 1 : -1;
+  return `M ${x1} ${y1} `
+       + `H ${midX-r} `
+       + `Q ${midX} ${y1} ${midX} ${y1+r*dir} `
+       + `V ${y2-r*dir} `
+       + `Q ${midX} ${y2} ${midX+r} ${y2} `
+       + `H ${x2}`;
+}
+
+function drawLines(){
+  const svg = bracketEl.querySelector('svg.lines');
+  svg.innerHTML = '';
+  const containerRect = bracketEl.getBoundingClientRect();
+
+  matches.forEach(m=>{
+    const feed = feedsInto[m.id];
+    if(!feed) return;
+    const sourceEl = bracketEl.querySelector('.match[data-match="'+m.id+'"]');
+    const targetEl = bracketEl.querySelector('.slot[data-match="'+feed.parent+'"][data-slot="'+feed.slot+'"]');
+    if(!sourceEl || !targetEl) return;
+
+    const sr = sourceEl.getBoundingClientRect();
+    const tr = targetEl.getBoundingClientRect();
+
+    const x1 = sr.right - containerRect.left;
+    const y1 = sr.top + sr.height/2 - containerRect.top;
+    const x2 = tr.left - containerRect.left;
+    const y2 = tr.top + tr.height/2 - containerRect.top;
+
+    // a line is "done" once its source match has a decided winner —
+    // this traces the path the winning team actually travelled
+    const isDone = winners[m.id] !== undefined;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', elbowPath(x1, y1, x2, y2, 10));
+    if(isDone) path.classList.add('done');
+    svg.appendChild(path);
+
+    const dot2 = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot2.setAttribute('cx', x2); dot2.setAttribute('cy', y2); dot2.setAttribute('r', 2.5);
+    if(isDone) dot2.classList.add('done');
+    svg.appendChild(dot2);
+  });
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function startEditing(nameEl, ref){
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'name-input';
+  input.value = seedTeams[ref.seed];
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  const commit = ()=>{
+    const val = input.value.trim();
+    seedTeams[ref.seed] = val || seedTeams[ref.seed];
+    render();
+    pushState();
+  };
+  input.addEventListener('keydown', e=>{
+    if(e.key==='Enter') input.blur();
+    if(e.key==='Escape'){ input.value = seedTeams[ref.seed]; input.blur(); }
+  });
+  input.addEventListener('blur', commit);
+  input.addEventListener('click', e=> e.stopPropagation());
+}
+
+// Reset button: click once to arm it, click again within a few seconds
+// to confirm. Avoids window.confirm(), which some embedded/sandboxed
+// browser views silently block.
+const resetBtn = document.getElementById('resetBtn');
+let resetArmed = false;
+let resetTimer = null;
+
+resetBtn.addEventListener('click', ()=>{
+  if(!resetArmed){
+    resetArmed = true;
+    resetBtn.textContent = 'Yakin? Klik sekali lagi';
+    resetBtn.classList.add('confirm');
+    resetTimer = setTimeout(()=>{
+      resetArmed = false;
+      resetBtn.textContent = 'Reset seluruh hasil';
+      resetBtn.classList.remove('confirm');
+    }, 3500);
+  } else {
+    clearTimeout(resetTimer);
+    resetArmed = false;
+    resetBtn.textContent = 'Reset seluruh hasil';
+    resetBtn.classList.remove('confirm');
+    winners = {};
+    render();
+    pushState();
+  }
+});
+
+window.addEventListener('resize', ()=> requestAnimationFrame(drawLines));
+
+loadState();
+// Viewers poll for updates so the bracket stays live without a refresh.
+// Admin doesn't poll, so an in-progress rename never gets overwritten
+// mid-edit by a stale fetch.
+if(!isAdmin){
+  setInterval(loadState, 6000);
+}
+</script>
+</body>
+</html>
